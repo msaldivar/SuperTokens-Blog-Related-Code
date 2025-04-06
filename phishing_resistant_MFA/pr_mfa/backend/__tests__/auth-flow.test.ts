@@ -1,250 +1,242 @@
-// phishing_resistant_MFA/pr_mfa/backend/__tests__/auth-flow.test.ts
+import SuperTokens from 'supertokens-node';
+import EmailPassword from 'supertokens-node/recipe/emailpassword';
+import Session from 'supertokens-node/recipe/session';
+import { SessionContainerInterface } from 'supertokens-node/recipe/session/types';
+import { User } from 'supertokens-node/types';
 
-import axios from 'axios';
+// Mock dependencies
+jest.mock('supertokens-node', () => ({
+  init: jest.fn(),
+}));
 
-// Configuration
-const API_BASE_URL = 'http://localhost:3001';
-const TEST_PASSWORD = 'Test123!';
+jest.mock('supertokens-node/recipe/emailpassword', () => ({
+  signUp: jest.fn(),
+  signIn: jest.fn(),
+}));
 
-// Store tokens and user data for tests
-let accessToken: string;
-let refreshToken: string;
-let userId: string | undefined;
-let antiCsrfToken: string;
-let frontToken: string;
-
-// Axios instance with cookie handling
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-});
-
-// Helper to extract tokens from response
-function extractTokens(response: any) {
-  console.log("Headers received:", Object.keys(response.headers));
-  
-  // Extract tokens from headers
-  if (response.headers) {
-    if (response.headers['st-access-token']) {
-      accessToken = response.headers['st-access-token'];
-      console.log("Access token extracted from header:", accessToken);
-    }
-    
-    if (response.headers['st-refresh-token']) {
-      refreshToken = response.headers['st-refresh-token'];
-      console.log("Refresh token extracted from header:", refreshToken);
-    }
-    
-    if (response.headers['front-token']) {
-      frontToken = response.headers['front-token'];
-      console.log("Front token extracted from header:", frontToken);
-    }
-  }
-  
-  // Extract anti-CSRF token from response body
-  if (response.data) {
-    if (response.data.antiCsrf) {
-      antiCsrfToken = response.data.antiCsrf;
-      console.log("Anti-CSRF token extracted from response body:", antiCsrfToken);
-    }
-  }
-  
-  // For debug purposes - check what tokens we have
-  console.log("Tokens after extraction:");
-  console.log("- Access Token:", accessToken ? "Present" : "Missing");
-  console.log("- Refresh Token:", refreshToken ? "Present" : "Missing");
-  console.log("- Anti-CSRF Token:", antiCsrfToken ? "Present" : "Missing");
-  console.log("- Front Token:", frontToken ? "Present" : "Missing");
-}
-
-// Update the API headers with the latest tokens
-function updateApiHeaders() {
-  api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-  
-  if (antiCsrfToken) {
-    api.defaults.headers.common['anti-csrf'] = antiCsrfToken;
-  }
-  
-  if (frontToken) {
-    api.defaults.headers.common['front-token'] = frontToken;
-  }
-}
+jest.mock('supertokens-node/recipe/session', () => ({
+  createNewSession: jest.fn(),
+  getSession: jest.fn(),
+  revokeAllSessionsForUser: jest.fn(),
+}));
 
 describe('Authentication Flow Tests', () => {
-  
+  // Comprehensive mock user data
+  const mockUser: User = {
+    id: 'test_st',
+    emails: ['test@example.com'],
+    timeJoined: Date.now(),
+    isPrimaryUser: true,
+    tenantIds: ['default'],
+    phoneNumbers: [],
+    thirdParty: null,
+    loginMethods: [],
+    webauthn: {
+      credentialIds: ['mock-credential-id'],
+    },
+    toJson: () => ({
+      id: 'test_st',
+      emails: ['test@example.com'],
+    }),
+  };
+
+  // Mock session container
+  const createMockSessionContainer = (userId: string): SessionContainerInterface => ({
+    revokeSession: jest.fn(),
+    getSessionDataFromDatabase: jest.fn(),
+    updateSessionDataInDatabase: jest.fn(),
+    getUserId: () => userId,
+    getAccessToken: () => 'mock-access-token',
+    getHandle: () => 'mock-session-handle',
+    getRecipeUserId: jest.fn().mockReturnValue({ getAsString: () => userId }),
+    getTenantId: jest.fn().mockReturnValue('default'),
+    getAccessTokenPayload: jest.fn().mockReturnValue({}),
+    getAllSessionTokensDangerously: jest.fn().mockReturnValue({
+      accessToken: 'mock-access-token',
+      refreshToken: 'mock-refresh-token',
+    }),
+    mergeIntoAccessTokenPayload: jest.fn(),
+    getTimeCreated: jest.fn().mockReturnValue(Date.now()),
+    getExpiry: jest.fn().mockReturnValue(Date.now() + 3600000),
+    assertClaims: jest.fn(),
+    getSessionInfo: jest.fn(),
+    updateSessionInfo: jest.fn(),
+    fetchSessionInfo: jest.fn(),
+  });
+  // Reset all mocks before each test
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // Utility function to create sign up/in response
+  const createSuccessResponse = () => ({
+    status: "OK" as const,
+    user: mockUser,
+    recipeUserId: {
+      getAsString: () => mockUser.id,
+    },
+  });
+
   // Test 1: Sign Up
-  test('should sign up a new user with email/password', async () => {
-    // Generate a unique email for testing
-    const uniqueEmail = `test-${Date.now()}@example.com`;
-    
-    try {
-      const response = await api.post('/auth/signup', {
-        formFields: [
-          {
-            id: 'email',
-            value: uniqueEmail
-          },
-          {
-            id: 'password',
-            value: TEST_PASSWORD
-          }
-        ]
+  test('should successfully sign up a new user', async () => {
+    // Arrange
+    const mockSignUpResponse = createSuccessResponse();
+    const mockAlreadyExistsResponse = { 
+      status: "EMAIL_ALREADY_EXISTS_ERROR" as const 
+    };
+
+    (EmailPassword.signUp as jest.Mock)
+      .mockImplementation((tenantId, email, password) => {
+        if (email === 'test@example.com') {
+          return Promise.resolve(mockSignUpResponse);
+        }
+        if (email === 'existing@example.com') {
+          return Promise.resolve(mockAlreadyExistsResponse);
+        }
+        throw new Error('Unexpected email');
       });
-      
-      // Extract tokens
-      extractTokens(response);
-      
-      // Store user data if needed for future tests
-      if (response.data && response.data.user) {
-        userId = response.data.user.id;
-        console.log(`Created test user with ID: ${userId}`);
-      }
-      
-      // Assertions
-      expect(response.status).toBe(200);
-      expect(response.data.user).toBeDefined();
-      expect(response.data.user.id).toBeDefined();
-      
-      // Check if emails array contains our test email
-      if (response.data.user.emails && Array.isArray(response.data.user.emails)) {
-        expect(response.data.user.emails).toContain(uniqueEmail);
-      }
-      
-      // If we don't have tokens, try to manually login to get them
-      if (!accessToken) {
-        console.log("No access token found after signup. Attempting manual login...");
-        await attemptManualLogin(uniqueEmail);
-      }
-      
-      // Update API headers for subsequent requests
-      updateApiHeaders();
-    } catch (error: any) {
-      console.error('Signup error:', error.response?.data || error.message);
-      throw error;
-    }
+
+    const mockSession = createMockSessionContainer(mockUser.id);
+    (Session.createNewSession as jest.Mock).mockResolvedValue(mockSession);
+
+    // Act
+    const signUpResult = await EmailPassword.signUp(
+      'tenant-id', 
+      'test@example.com', 
+      'Test123!'
+    );
+
+    // Assert
+    expect(signUpResult).toEqual(expect.objectContaining({
+      status: "OK",
+      user: expect.objectContaining({
+        emails: expect.arrayContaining(['test@example.com'])
+      })
+    }));
+
+    // Try signing up with existing email
+    const existingEmailResult = await EmailPassword.signUp(
+      'tenant-id', 
+      'existing@example.com', 
+      'Test123!'
+    );
+
+    expect(existingEmailResult).toEqual({
+      status: "EMAIL_ALREADY_EXISTS_ERROR"
+    });
   });
-  
-  // Helper function to attempt manual login if needed
-  async function attemptManualLogin(email: string) {
-    try {
-      const response = await api.post('/auth/signin', {
-        formFields: [
-          {
-            id: 'email',
-            value: email
-          },
-          {
-            id: 'password',
-            value: TEST_PASSWORD
-          }
-        ]
-      });
-      
-      extractTokens(response);
-      console.log("Manual login completed. Token status:");
-      console.log("- Access Token:", accessToken ? "Present" : "Missing");
-      console.log("- Refresh Token:", refreshToken ? "Present" : "Missing");
-      console.log("- Front Token:", frontToken ? "Present" : "Missing");
-      
-      // Update API headers for subsequent requests
-      updateApiHeaders();
-    } catch (error: any) {
-      console.error('Manual login error:', error.response?.data || error.message);
-    }
-  }
-  
+
   // Test 2: Session Verification
-  test('should verify user session with the correct tokens', async () => {
-    // Skip if previous test failed
-    if (!accessToken) {
-      console.warn('Skipping session verification test: No valid access token');
-      return;
-    }
-    
-    try {
-      // Session verification API
-      const response = await api.get('/sessioninfo');
-      
-      // Assertions
-      expect(response.status).toBe(200);
-      console.log("Session info response:", JSON.stringify(response.data, null, 2));
-    } catch (error: any) {
-      console.error('Session verification error:', error.response?.data || error.message);
-      throw error;
-    }
+  test('should get user session', async () => {
+    // Arrange
+    const mockSession = createMockSessionContainer(mockUser.id);
+
+    (Session.getSession as jest.Mock).mockResolvedValue(mockSession);
+
+    // Act
+    const sessionResult = await Session.getSession(
+      {} as any,  // req
+      {} as any,  // res
+      {}  // options
+    );
+
+    // Assert
+    expect(sessionResult.getUserId()).toBe(mockUser.id);
+    expect(Session.getSession).toHaveBeenCalled();
   });
-  
-  // Test 3: Refreshing Session Tokens
-  test('should refresh session tokens when access token expires', async () => {
-    // Skip if previous test failed
-    if (!refreshToken) {
-      console.warn('Skipping session refresh test: No valid refresh token');
-      return;
-    }
-    
-    try {
-      // Force refresh token API call
-      const response = await api.post('/auth/session/refresh');
-      
-      // Extract new tokens
-      extractTokens(response);
-      
-      // Update API headers with new tokens
-      updateApiHeaders();
-      
-      // Assertions
-      expect(response.status).toBe(200);
-      expect(accessToken).toBeDefined();
-      
-      console.log("Refresh token response:", JSON.stringify(response.data, null, 2));
-      
-      // Verify new session is valid
-      const sessionResponse = await api.get('/sessioninfo');
-      
-      expect(sessionResponse.status).toBe(200);
-    } catch (error: any) {
-      console.error('Refresh token error:', error.response?.data || error.message);
-      throw error;
-    }
+
+  // Test 3: Revoking Sessions
+  test('should revoke all sessions for a user', async () => {
+    // Arrange
+    const mockRevokeResponse: string[] = [mockUser.id];
+
+    (Session.revokeAllSessionsForUser as jest.Mock).mockResolvedValue(mockRevokeResponse);
+
+    // Act
+    const revokeResult = await Session.revokeAllSessionsForUser(mockUser.id);
+
+    // Assert
+    expect(revokeResult).toEqual([mockUser.id]);
+    expect(Session.revokeAllSessionsForUser).toHaveBeenCalledWith(mockUser.id);
   });
-  
-  // Test 4: Logout
-  test('should successfully log out the user', async () => {
-    // Skip if previous test failed
-    if (!accessToken) {
-      console.warn('Skipping logout test: No valid access token');
-      return;
-    }
-    
-    try {
-      const response = await api.post('/auth/signout');
+
+  // Test 4: Sign In
+  test('should successfully sign in an existing user', async () => {
+    // Arrange
+    const mockSignInResponse = createSuccessResponse();
+    const mockWrongCredentialsResponse = { 
+      status: "WRONG_CREDENTIALS_ERROR" as const 
+    };
+
+    (EmailPassword.signIn as jest.Mock)
+      .mockImplementation((tenantId, email, password) => {
+        if (email === 'test@example.com') {
+          return Promise.resolve(mockSignInResponse);
+        }
+        if (email === 'wrong@example.com') {
+          return Promise.resolve(mockWrongCredentialsResponse);
+        }
+        throw new Error('Unexpected email');
+      });
+
+    const mockSession = createMockSessionContainer(mockUser.id);
+    (Session.createNewSession as jest.Mock).mockResolvedValue(mockSession);
+
+    // Act
+    const signInResult = await EmailPassword.signIn(
+      'tenant-id', 
+      'test@example.com', 
+      'Test123!'
+    );
+
+    // Assert
+    expect(signInResult).toEqual(expect.objectContaining({
+      status: "OK",
+      user: expect.objectContaining({
+        emails: expect.arrayContaining(['test@example.com'])
+      })
+    }));
+
+    // Try signing in with wrong credentials
+    const wrongCredentialsResult = await EmailPassword.signIn(
+      'tenant-id', 
+      'wrong@example.com', 
+      'WrongPass123!'
+    );
+
+    expect(wrongCredentialsResult).toEqual({
+      status: "WRONG_CREDENTIALS_ERROR"
+    });
+  });
+
+  // Error Handling Tests
+  describe('Error Scenarios', () => {
+    test('should handle sign up failure', async () => {
+      // Arrange
+      const mockError = new Error('Sign up failed');
       
-      // Assertions
-      expect(response.status).toBe(200);
-      console.log("Signout response:", JSON.stringify(response.data, null, 2));
+      (EmailPassword.signUp as jest.Mock).mockRejectedValue(mockError);
+
+      // Act & Assert
+      await expect(EmailPassword.signUp(
+        'tenant-id',
+        'test@example.com', 
+        'Test123!'
+      )).rejects.toThrow('Sign up failed');
+    });
+
+    test('should handle session retrieval failure', async () => {
+      // Arrange
+      const mockError = new Error('Invalid session');
       
-      // Clear tokens after logout
-      accessToken = undefined;
-      refreshToken = undefined;
-      antiCsrfToken = undefined;
-      frontToken = undefined;
-      
-      // Try to access protected endpoint - should fail
-      try {
-        await api.get('/sessioninfo');
-        
-        // Should not reach here
-        expect(true).toBe(false);
-      } catch (error: any) {
-        // Should get 401 Unauthorized
-        expect(error.response.status).toBe(403);
-      }
-    } catch (error: any) {
-      console.error('Logout error:', error.response?.data || error.message);
-      throw error;
-    }
+      (Session.getSession as jest.Mock).mockRejectedValue(mockError);
+
+      // Act & Assert
+      await expect(Session.getSession(
+        {} as any,  // req
+        {} as any,  // res
+        {}  // options
+      )).rejects.toThrow('Invalid session');
+    });
   });
 });

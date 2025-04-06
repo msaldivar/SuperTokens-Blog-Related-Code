@@ -27,6 +27,8 @@
         "qs": "^6.11.2",
         "ts-jest": "^29.1.1",
         "typescript-eslint": "^8.18.1",
-        "vite-node": "^2.1.8"
+        "vite-node": "^2.1.8",
+        "jest-mock": "^29.7.0",
+        "@types/jest": "^29.5.11"
     }
 }
