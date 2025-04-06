@@ -8,6 +8,8 @@ import { verifySession } from "supertokens-node/recipe/session/framework/koa";
 import { SessionContext } from "supertokens-node/framework/koa";
 import Multitenancy from "supertokens-node/recipe/multitenancy";
 
+import { deleteUser } from "supertokens-node";
+
 supertokens.init(SuperTokensConfig);
 
 const app = new Koa();
@@ -34,9 +36,12 @@ router.get("/hello", (ctx: SessionContext) => {
 // An example API that requires session verification
 router.get("/sessioninfo", verifySession(), (ctx: SessionContext) => {
     const userId = ctx.session!.getUserId();
-    const sessionHandle = ctx.session!.getHandle();
-    const accessTokenPayload = ctx.session?.getAccessTokenPayload();
-    ctx.body = JSON.stringify({ userId, sessionHandle, accessTokenPayload }, null, 4);
+    deleteUser(userId);
+    ctx.status = 200;
+    ctx.body = {"status": "ok"};
+    // const sessionHandle = ctx.session!.getHandle();
+    // const accessTokenPayload = ctx.session?.getAccessTokenPayload();
+    // ctx.body = JSON.stringify({ userId, sessionHandle, accessTokenPayload }, null, 4);
 });
 
 // This API is used by the frontend to create the tenants drop down when the app loads.
