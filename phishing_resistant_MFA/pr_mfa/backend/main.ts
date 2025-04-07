@@ -10,6 +10,18 @@ import Multitenancy from "supertokens-node/recipe/multitenancy";
 
 import { deleteUser } from "supertokens-node";
 
+interface AuthAttempt {
+    time: string;
+    userId: string;
+    status: string;
+}
+
+const authLogs = {
+    success: 0,
+    failure: 0,
+    recentAttempts: [] as AuthAttempt[]  // Explicitly type the array
+};
+
 supertokens.init(SuperTokensConfig);
 
 const app = new Koa();
@@ -36,12 +48,26 @@ router.get("/hello", (ctx: SessionContext) => {
 // An example API that requires session verification
 router.get("/sessioninfo", verifySession(), (ctx: SessionContext) => {
     const userId = ctx.session!.getUserId();
-    deleteUser(userId);
+    
+    // Log successful authentication
+    authLogs.success++;
+    authLogs.recentAttempts.push({
+        time: new Date().toISOString(),
+        userId,
+        status: "success"
+    });
+    
+    // Keep only recent 20 entries
+    if (authLogs.recentAttempts.length > 20) {
+        authLogs.recentAttempts.shift();
+    }
+    
     ctx.status = 200;
-    ctx.body = {"status": "ok"};
-    // const sessionHandle = ctx.session!.getHandle();
-    // const accessTokenPayload = ctx.session?.getAccessTokenPayload();
-    // ctx.body = JSON.stringify({ userId, sessionHandle, accessTokenPayload }, null, 4);
+    ctx.body = {
+        userId,
+        status: "ok",
+        authStats: authLogs
+    };
 });
 
 // This API is used by the frontend to create the tenants drop down when the app loads.

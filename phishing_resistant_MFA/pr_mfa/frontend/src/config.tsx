@@ -38,6 +38,24 @@ export const SuperTokensConfig = {
         WebAuthn.init(),
         Passwordless.init({
             contactMethod: "EMAIL_OR_PHONE",
+            onHandleEvent: (context) => {
+                // Track session events
+                if (context.action === "SUCCESS") {
+                    if (context.createdNewSession) {
+                        let user = context.user;
+                        if (context.isNewRecipeUser && context.user.loginMethods.length === 1) {
+                            // sign up success
+                            console.log("sign up was a success")
+                        } else {
+                            // sign in success
+                            console.log("sign in was a success - no second auth")
+                        }
+                    } else {
+                        // during step up or second factor auth with email password
+                        console.log("sign in was a success - second factor auth")
+                    }
+                }
+            }
         }),
         MultiFactorAuth.init({ 
             firstFactors: ["webauthn", "emailpassword"]
