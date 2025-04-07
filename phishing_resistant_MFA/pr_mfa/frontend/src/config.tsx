@@ -5,13 +5,6 @@ import Session from "supertokens-auth-react/recipe/session";
 import WebAuthn from "supertokens-auth-react/recipe/webauthn"; // passkeys
 import { WebauthnPreBuiltUI } from 'supertokens-auth-react/recipe/webauthn/prebuiltui'; // passkeys
 
-// mfa
-import MultiFactorAuth from "supertokens-auth-react/recipe/multifactorauth";
-import { MultiFactorAuthPreBuiltUI } from "supertokens-auth-react/recipe/multifactorauth/prebuiltui";
-import Passwordless from "supertokens-auth-react/recipe/passwordless";
-import { PasswordlessPreBuiltUI } from "supertokens-auth-react/recipe/passwordless/prebuiltui";
-import TOTP from "supertokens-auth-react/recipe/totp";
-import { TOTPPreBuiltUI } from "supertokens-auth-react/recipe/totp/prebuiltui";
 
 export function getApiDomain() {
     const apiPort = import.meta.env.VITE_APP_API_PORT || 3001;
@@ -36,13 +29,6 @@ export const SuperTokensConfig = {
     recipeList: [
         EmailPassword.init(),
         WebAuthn.init(),
-        Passwordless.init({
-            contactMethod: "EMAIL_OR_PHONE",
-        }),
-        MultiFactorAuth.init({ 
-            firstFactors: ["webauthn", "emailpassword"]
-        }),
-        TOTP.init(),
         Session.init()
     ],
     getRedirectionURL: async (context) => {
@@ -59,9 +45,6 @@ export const recipeDetails = {
 export const PreBuiltUIList = [
     EmailPasswordPreBuiltUI,
     WebauthnPreBuiltUI,
-    PasswordlessPreBuiltUI,
-    MultiFactorAuthPreBuiltUI,
-    TOTPPreBuiltUI
 ];
 
 export const ComponentWrapper = (props: { children: JSX.Element }): JSX.Element => {
