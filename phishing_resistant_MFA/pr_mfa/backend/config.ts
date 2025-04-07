@@ -4,8 +4,9 @@ import { TypeInput } from "supertokens-node/types";
 import Dashboard from "supertokens-node/recipe/dashboard";
 import UserRoles from "supertokens-node/recipe/userroles";
 
-import WebAuthn from "supertokens-node/recipe/webauthn"; // Add this import
+import WebAuthn from "supertokens-node/recipe/webauthn"; // enables passkeys
 
+// mfa imports
 import AccountLinking from "supertokens-node/recipe/accountlinking";
 import MultiFactorAuth from "supertokens-node/recipe/multifactorauth";
 import TOTP from "supertokens-node/recipe/totp";
@@ -37,7 +38,7 @@ export const SuperTokensConfig: TypeInput = {
     },
     recipeList: [
         EmailPassword.init(),
-        WebAuthn.init(), // Add WebAuthn recipe
+        WebAuthn.init(),
         Passwordless.init({
             contactMethod: "EMAIL_OR_PHONE",
             flowType: "USER_INPUT_CODE_AND_MAGIC_LINK",
@@ -74,7 +75,6 @@ export const SuperTokensConfig: TypeInput = {
                         {
                             oneOf: [
                                 MultiFactorAuth.FactorIds.TOTP,
-                                //MultiFactorAuth.FactorIds.EMAILPASSWORD,
                                 MultiFactorAuth.FactorIds.OTP_EMAIL,
                                 MultiFactorAuth.FactorIds.OTP_PHONE,
                             ],

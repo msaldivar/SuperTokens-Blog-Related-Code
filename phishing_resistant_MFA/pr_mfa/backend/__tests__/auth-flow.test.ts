@@ -59,10 +59,18 @@ describe('Authentication Flow Tests', () => {
     getTimeCreated: jest.fn().mockReturnValue(Date.now()),
     getExpiry: jest.fn().mockReturnValue(Date.now() + 3600000),
     assertClaims: jest.fn(),
-    getSessionInfo: jest.fn(),
-    updateSessionInfo: jest.fn(),
-    fetchSessionInfo: jest.fn(),
+    
+    // Adding missing methods with mock implementations
+    fetchAndSetClaim: jest.fn(),
+    setClaimValue: jest.fn(),
+    getClaimValue: jest.fn(),
+    removeClaim: jest.fn(),
+    attachToRequestResponse: jest.fn(),
   });
+
+  // Rest of the test suite remains the same...
+  // (Previous implementation of tests)
+
   // Reset all mocks before each test
   beforeEach(() => {
     jest.clearAllMocks();

@@ -2,8 +2,10 @@ import EmailPassword from "supertokens-auth-react/recipe/emailpassword";
 import { EmailPasswordPreBuiltUI } from "supertokens-auth-react/recipe/emailpassword/prebuiltui";
 import Session from "supertokens-auth-react/recipe/session";
 
-import WebAuthn from "supertokens-auth-react/recipe/webauthn"; // Add this import
-import { WebauthnPreBuiltUI } from 'supertokens-auth-react/recipe/webauthn/prebuiltui'; // Add this import
+import WebAuthn from "supertokens-auth-react/recipe/webauthn"; // passkeys
+import { WebauthnPreBuiltUI } from 'supertokens-auth-react/recipe/webauthn/prebuiltui'; // passkeys
+
+// mfa
 import MultiFactorAuth from "supertokens-auth-react/recipe/multifactorauth";
 import { MultiFactorAuthPreBuiltUI } from "supertokens-auth-react/recipe/multifactorauth/prebuiltui";
 import Passwordless from "supertokens-auth-react/recipe/passwordless";
